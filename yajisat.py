@@ -82,17 +82,17 @@ def Vd(i, j):
 def Vl(i, j, a):
     return (cell(i, j) - 1) * 4 + angle(a) + Vd(W, H)
 def Vc(i, j, x, y, m):
-    assert 0 <= m < W * H
-    v = ((cell(i, j) - 1) * W * H + cell(x, y) - 1) * W * H + (m + 1)
+    assert 0 <= m <= W * H // 2
+    v = ((cell(i, j) - 1) * W * H + cell(x, y) - 1) * (W*H//2+1) + (m + 1)
     return v + Vl(W, H, down)
 def Vcp(i, j, x, y, m, a):
-    assert 0 <= m < W * H
+    assert 0 <= m <= W * H // 2
     v = (Vc(i, j, x, y, m) - Vc(1, 1, 1, 1, 0)) * 4 + angle(a)
-    return v + Vc(W, H, W, H, W * H - 1)
+    return v + Vc(W, H, W, H, W * H // 2)
 def Vn(i, j, a, m):
     assert 0 <= m <= max(W, H)
     v = ((cell(i, j) - 1) * 4 + angle(a) - 1) * (max(W, H) + 1) + (m + 1)
-    return v + Vcp(W, H, W, H, W * H - 1, down)
+    return v + Vcp(W, H, W, H, W * H // 2, down)
 Vlast = Vn(W, H, down, max(W, H))
 
 def celldecode(v):
@@ -114,24 +114,24 @@ def Vdecode(v):
         a    = (v - 1) %  4 + 1
         i, j = celldecode((v - 1) // 4 + 1)
         return 'l({},{},{})'.format(i, j, prnt[a])
-    elif v <= Vc(W, H, W, H, W * H - 1):
+    elif v <= Vc(W, H, W, H, W * H // 2):
         v -= Vl(W, H, down)
-        m = (v - 1) %  (W * H)
-        v = (v - 1) // (W * H) + 1
+        m = (v - 1) %  (W * H // 2 + 1)
+        v = (v - 1) // (W * H // 2 + 1) + 1
         x, y = celldecode((v - 1) %  (W * H) + 1)
         i, j = celldecode((v - 1) // (W * H) + 1)
         return 'c({},{},{},{},{})'.format(i, j, x, y, m)
-    elif v <= Vcp(W, H, W, H, W * H - 1, down):
-        v -= Vc(W, H, W, H, W * H - 1)
+    elif v <= Vcp(W, H, W, H, W * H // 2, down):
+        v -= Vc(W, H, W, H, W * H // 2)
         a = (v - 1) %  4 + 1
         v = (v - 1) // 4 + 1
-        m = (v - 1) %  (W * H)
-        v = (v - 1) // (W * H) + 1
+        m = (v - 1) %  (W * H // 2 + 1)
+        v = (v - 1) // (W * H // 2 + 1) + 1
         x, y = celldecode((v - 1) %  (W * H) + 1)
         i, j = celldecode((v - 1) // (W * H) + 1)
         return 'cp({},{},{},{},{},{})'.format(i, j, x, y, m, prnt[a])
     elif v <= Vn(W, H, down, max(W, H)):
-        v -= Vcp(W, H, W, H, W * H - 1, down)
+        v -= Vcp(W, H, W, H, W * H // 2, down)
         m = (v - 1) %  (max(W, H) + 1)
         v = (v - 1) // (max(W, H) + 1) + 1
         a = (v - 1) %  4 + 1
@@ -213,12 +213,13 @@ for i, j in doubleloop(1, W+1, 1, H+1):
     # 自分自身のみ距離0で到達可能
     clause.append([Vc(i,j,i,j,0)])
     for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) == (i, j): continue
+        if (x, y) <= (i, j): continue
         clause.append([-Vc(i,j,x,y,0)])
 
     # cp(i,j,x,y,m,a) == c(i,j,x,y,m) and l(x,y,a)
     for x, y in doubleloop(1, W+1, 1, H+1):
-        for m in range(W * H):
+        if (x, y) < (i, j): continue
+        for m in range(W * H // 2 + 1):
             for a in X:
                 clause.append([-Vc(i,j,x,y,m),-Vl(x,y,a),Vcp(i,j,x,y,m,a)])
                 clause.append([-Vcp(i,j,x,y,m,a), Vc(i,j,x,y,m)])
@@ -226,12 +227,14 @@ for i, j in doubleloop(1, W+1, 1, H+1):
 
     # 距離m-1以内で到達可能なら距離m以内でも到達可能
     for x, y in doubleloop(1, W+1, 1, H+1):
-        for m in range(1, W * H):
+        if (x, y) < (i, j): continue
+        for m in range(1, W * H // 2 + 1):
             clause.append([-Vc(i,j,x,y,m-1), Vc(i,j,x,y,m)])
 
     # 到達可能なマスと線でつながっているなら到達可能
     for x, y in doubleloop(1, W+1, 1, H+1):
-        for m in range(1, W * H):
+        if (x, y) < (i, j): continue
+        for m in range(1, W * H // 2 + 1):
             for a in X:
                 if ob((x, y), a): continue
                 xp, yp = a((x, y))
@@ -239,8 +242,8 @@ for i, j in doubleloop(1, W+1, 1, H+1):
 
     # それらのときのみ到達可能
     for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) == (i, j): continue
-        for m in range(1, W * H):
+        if (x, y) <= (i, j): continue
+        for m in range(1, W * H // 2 + 1):
             tmpcl = [-Vc(i,j,x,y,m), Vc(i,j,x,y,m-1)]
             for a in X:
                 if ob((x, y), a): continue
@@ -250,7 +253,8 @@ for i, j in doubleloop(1, W+1, 1, H+1):
 
     # 数字マスでも黒マスでもなければ互いに到達可能
     for x, y in doubleloop(1, W+1, 1, H+1):
-        m = W * H - 1
+        if (x, y) <= (i, j): continue
+        m = W * H // 2
         clause.append([Vd(i,j), Vb(i,j), Vd(x,y), Vb(x,y), Vc(i,j,x,y,m)])
 
     for a in X:
