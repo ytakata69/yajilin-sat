@@ -6,6 +6,7 @@
 # $ ./yajisat.py decode < o.cnf | ./draw.py
 
 import matplotlib.pyplot as plt
+import matplotlib.ticker as tick
 import sys
 
 digit = {}
@@ -68,6 +69,8 @@ for i, j in link:
 plt.axis('scaled')  # make each cell a square
 plt.xlim( 0, W)
 plt.ylim(-H, 0)
-plt.grid()          # draw the grid
+ax.xaxis.set_major_locator(tick.MultipleLocator(1))
+ax.yaxis.set_major_locator(tick.MultipleLocator(1))
+plt.grid(which='major') # draw the grid
 
 plt.show()
