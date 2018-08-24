@@ -8,7 +8,7 @@
 # https://www.nikoli.co.jp/ja/puzzles/yajilin/
 
 # usage:
-#   yajisat.py [-d | --decode] [<inputfile>]
+#   yajisat.py [-d | --decode] [-v | --verbose] [<inputfile>]
 #
 # $ ./yajisat.py > y.cnf
 # $ minisat y.cnf o.txt
@@ -18,7 +18,8 @@ from sys import argv, stderr
 
 # コマンドライン引数
 argv.pop(0)  # コマンド名自身を削除
-decode_mode = '-d' in argv or '--decode' in argv
+decode_mode  = '-d' in argv or '--decode'  in argv
+verbose_mode = '-v' in argv or '--verbose' in argv
 inputfile = \
     ([v for v in argv if not v.startswith('-')] + [None])[0]
 
@@ -147,7 +148,7 @@ if decode_mode:
     lit.pop()
     print('W,H={},{}'.format(W, H))
     for s in map(Vdecode, lit):
-        if s.startswith('c'): break
+        if not verbose_mode and s.startswith('c'): break
         print(s)
     exit()
 
