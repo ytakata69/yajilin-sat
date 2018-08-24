@@ -1,0 +1,165 @@
+\documentclass[a4j]{jarticle}
+\usepackage{amsmath}
+
+\parindent=0pt
+\setcounter{secnumdepth}{2}
+
+\newcommand{\N}[1]{\overline{#1\vphantom{l}}}
+\newcommand{\←}{{\leftarrow}}
+\newcommand{\→}{{\rightarrow}}
+\newcommand{\↑}{{\uparrow}}
+\newcommand{\↓}{{\downarrow}}
+
+\begin{document}
+
+\section*{ヤジリンをSATソルバで解く方法}
+\begin{flushright}
+2018.8.24 y-takata
+\end{flushright}
+
+ヤジリンの遊び方，ルール，解き方\\
+https://www.nikoli.co.jp/ja/puzzles/yajilin/
+
+\section{準備}
+盤面の幅を$W$，高さを$H$とする．
+第$i$列第$j$行のマスをマス$(i,j)$と呼ぶ（$1\le i\le W$, $1\le j\le H$）．
+
+$X=\{\←,\→,\↑,\↓\}$とする．
+$X$の各要素はマスからマスへの関数．例えば$\→(i,j)=(i+1,j)$．
+%$X(i,j)=\{(i-1,j),(i,j-1),(i+1,j),(i,j+1)\}$.
+
+\section{SAT符号化}
+\subsection{命題変数}
+\begin{itemize}
+\item $b_{i,j}$: マス$(i,j)$は黒．
+\item $d_{i,j}$: マス$(i,j)$は数字のマス．
+\item $l_{i,j,a}$: マス$(i,j)$がマス$a(i,j)$と線でつながっている（$a\in X$）．
+\item $c_{i,j,x,y,m}$: マス$(i,j)$からマス$(x,y)$まで線をたどって
+  距離$m$以下で到達可能．
+\item $c'_{i,j,x,y,m,a}$: $c_{i,j,x,y,m}\land l_{x,y,a}$を表す補助変数．
+\item $n_{i,j,a,m}$: マス$(i,j)$の方向$a$に$m$個以上黒マスがある
+  （マス$(i,j)$を含まない）．
+\end{itemize}
+
+\subsection{ルール}
+\subsubsection{基本ルール}
+\begin{itemize}
+\item 数字マスは黒マスでない．
+  $\N{d_{i,j}}\lor\N{b_{i,j}}$.
+
+%\item 数字マスでも黒マスでもなければ線が通る．
+%  $d_{i,j}\lor b_{i,j}
+%  \lor l_{i,j,\←}
+%  \lor l_{i,j,\→}
+%  \lor l_{i,j,\↑}
+%  \lor l_{i,j,\↓}
+%  $.
+
+\item 黒マスは線が通らない．　
+  $\N{b_{i,j}}\lor\N{l_{i,j,a}}$.
+
+\item 数字マスは線が通らない．
+  $\N{d_{i,j}}\lor\N{l_{i,j,a}}$.
+
+\item 黒マスはタテヨコに連続しない．
+  $\begin{aligned}[t]
+   & (\N{b_{i,j}}\lor\N{b_{i+1,j}}) \\
+   {}\land{}
+   & (\N{b_{i,j}}\lor\N{b_{i,j+1}}).
+  \end{aligned}$
+
+\item マス$(i,j)$が数字マスなら $d_{i,j}$．
+\item マス$(i,j)$が数字マスでなければ $\N{d_{i,j}}$．
+\end{itemize}
+
+\subsubsection{線}
+
+\begin{itemize}
+\item 線は対称．
+  $\begin{alignedat}[t]{4}
+   & (\N{l_{i,j,\→}} &&\lor   l_{i+1,j,\←})  &&\land
+     (   l_{i,j,\→}  &&\lor\N{l_{i+1,j,\←}}) \\ {}\land{}
+   & (\N{l_{i,j,\↓}} &&\lor   l_{i,j+1,\↑})  &&\land
+     (   l_{i,j,\↓}  &&\lor\N{l_{i,j+1,\↑}}).
+  \end{alignedat}$
+
+\item 盤面の端とはつながらない．
+  $\begin{alignedat}[t]{3}
+   \text{（左右）}\quad &
+   \N{l_{1,j,\←}} &&\land \N{l_{W,j,\→}} \\
+   \text{（上下）}\quad &
+   \N{l_{i,1,\↑}} &&\land \N{l_{i,H,\↓}}
+   \end{alignedat}$
+
+\item どのマスもたかだか2マスと線でつながる．
+  $\begin{alignedat}[t]{3}
+   & (\N{l_{i,j,\←}}&&\lor\N{l_{i,j,\→}}&&\lor\N{l_{i,j,\↑}}) \\ {}\land{}
+   & (\N{l_{i,j,\←}}&&\lor\N{l_{i,j,\→}}&&\lor\N{l_{i,j,\↓}}) \\ {}\land{}
+   & (\N{l_{i,j,\←}}&&\lor\N{l_{i,j,\↑}}&&\lor\N{l_{i,j,\↓}}) \\ {}\land{}
+   & (\N{l_{i,j,\→}}&&\lor\N{l_{i,j,\↑}}&&\lor\N{l_{i,j,\↓}}).
+  \end{alignedat}$
+
+\item どのマスも1マスとだけ線でつながることはない．
+  $\begin{alignedat}[t]{1}
+   &(l_{i,j,\←}\lor l_{i,j,\→}\lor l_{i,j,\↑}\lor\N{l_{i,j,\↓}})\\{}\land{}
+   &(l_{i,j,\←}\lor l_{i,j,\→}\lor\N{l_{i,j,\↑}}\lor l_{i,j,\↓})\\{}\land{}
+   &(l_{i,j,\←}\lor\N{l_{i,j,\→}}\lor l_{i,j,\↑}\lor l_{i,j,\↓})\\{}\land{}
+   &(\N{l_{i,j,\←}}\lor l_{i,j,\→}\lor l_{i,j,\↑}\lor l_{i,j,\↓}).
+  \end{alignedat}$
+\end{itemize}
+
+\subsubsection{全体で一つの輪っかになる}
+
+\begin{itemize}
+\item 自分自身のみ距離0で到達可能．
+  $c_{i,j,i,j,0}\land \bigwedge_{(x,y)\ne(i,j)} \N{c_{i,j,x,y,0}}$.
+
+\item $c'_{i,j,x,y,m,a}$は$c_{i,j,x,y,m}\land l_{x,y,a}$と等価．
+  \quad
+  $\begin{aligned}[t]
+   &(\N{c_{i,j,x,y,m}}\lor\N{l_{x,y,a}}\lor{c'_{i,j,x,y,m,a}})\\{}\land{}
+   &(\N{c'_{i,j,x,y,m,a}}\lor{c_{i,j,x,y,m}})\\{}\land{}
+   &(\N{c'_{i,j,x,y,m,a}}\lor{l_{x,y,a}}).
+   \end{aligned}$
+
+\item 距離$m$以内に到達可能なら距離$m+1$以内で到達可能．
+   $\N{c_{i,j,x,y,m}}\lor c_{i,j,x,y,m+1}$.
+\item 到達可能なマスと線でつながっているとき到達可能．
+   $\N{c'_{i,j,x,y,m,a}}\lor{c_{i,j,a(x,y),m+1}}$.
+\item それらのときのみ到達可能．
+   \par\qquad
+     $\N{c_{i,j,x,y,m+1}}\lor
+      c_{i,j,x,y,m}\lor
+      c'_{i,j,\→(x,y),m,\←}\lor
+      c'_{i,j,\←(x,y),m,\→}\lor
+      c'_{i,j,\↓(x,y),m,\↑}\lor
+      c'_{i,j,\↑(x,y),m,\↓}$.
+
+\item 数字マスでも黒マスでもなければ互いに到達可能．
+  $d_{i,j}\lor b_{i,j}\lor
+   d_{x,y}\lor b_{x,y}\lor
+   c_{i,j,x,y,WH-1}$.
+\end{itemize}
+
+\subsubsection{数字は矢印の方向に入る黒マスの数を表す}
+
+\begin{itemize}
+\item マス$(1,j)$より左に黒マスはない．
+$n_{1,j,\←,0}
+\land \N{n_{1,j,\←,1}} \land\ldots\land \N{n_{1,j,\←,W}}$.
+
+\item マス$(i+1,j)$より左の黒マスの個数．
+  $\begin{aligned}[t]
+   &(\N{n_{i,j,\←,m}}\lor n_{i+1,j,\←,m})\\{}\land{}
+   &(\N{n_{i,j,\←,m-1}}\lor\N{b_{i,j}}\lor n_{i+1,j,\←,m})\\{}\land{}
+   &(\N{n_{i+1,j,\←,m}}\lor n_{i,j,\←,m}\lor n_{i,j,\←,m-1})\\
+   {}\land{}
+   &(\N{n_{i+1,j,\←,m}}\lor n_{i,j,\←,m}\lor b_{i,j}).
+   \end{aligned}$
+
+\item ほかの方向も同様．
+
+\item マス$(i,j)$に矢印$a$と数字$k$が書かれている．
+  $n_{i,j,a,k}\land\N{n_{i,j,a,k+1}}$.
+\end{itemize}
+\end{document}
