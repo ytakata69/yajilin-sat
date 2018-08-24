@@ -93,7 +93,11 @@ def Vn(i, j, a, m):
     assert 0 <= m <= max(W, H)
     v = ((cell(i, j) - 1) * 4 + angle(a) - 1) * (max(W, H) + 1) + (m + 1)
     return v + Vcp(W, H, W, H, W * H // 2, down)
-Vlast = Vn(W, H, down, max(W, H))
+def Vp(i):
+    """p_i: 数字でも黒マスでもないマスがi番目以前に存在する．"""
+    assert 0 <= i <= W * H
+    return i + 1 + Vn(W, H, down, max(W, H))
+Vlast = Vp(W * H)
 
 def celldecode(v):
     i = (v - 1) %  W + 1
@@ -137,6 +141,10 @@ def Vdecode(v):
         a = (v - 1) %  4 + 1
         i, j = celldecode((v - 1) // 4 + 1)
         return 'n({},{},{},{})'.format(i, j, prnt[a], m)
+    elif v <= Vp(W * H):
+        v -= Vn(W, H, down, max(W, H))
+        i = v - 1
+        return 'p({})'.format(i)
     else:
         raise
 
@@ -238,6 +246,7 @@ for i, j in doubleloop(1, W+1, 1, H+1):
             for a in X:
                 if ob((x, y), a): continue
                 xp, yp = a((x, y))
+                if (xp, yp) < (i, j): continue
                 clause.append([-Vcp(i,j,x,y,m-1,a), Vc(i,j,xp,yp,m)])
 
     # それらのときのみ到達可能
@@ -248,15 +257,30 @@ for i, j in doubleloop(1, W+1, 1, H+1):
             for a in X:
                 if ob((x, y), a): continue
                 xp, yp = a((x, y))
+                if (xp, yp) < (i, j): continue
                 tmpcl.append(Vcp(i,j,xp,yp,m-1,revers[a]))
             clause.append(tmpcl)
 
-    # 数字マスでも黒マスでもなければ互いに到達可能
+    # マスの通し番号 ((i,j) < (x,y) なら idx(i,j) < idx(x,y))
+    idx = (i - 1) * H + j
+
+    # 最初の白マスからすべての白マスに到達可能
     for x, y in doubleloop(1, W+1, 1, H+1):
         if (x, y) <= (i, j): continue
         m = W * H // 2
-        clause.append([Vd(i,j), Vb(i,j), Vd(x,y), Vb(x,y), Vc(i,j,x,y,m)])
+        clause.append([-Vp(idx), Vp(idx-1), Vd(x,y), Vb(x,y), Vc(i,j,x,y,m)])
 
+    # idx番目のマス以前に白マスがある ⇔ idx-1番目以前にある ∨ idx番目が白マス
+    clause.append([-Vp(idx-1), Vp(idx)])
+    clause.append([Vb(i,j), Vd(i,j), Vp(idx)])
+    clause.append([-Vp(idx), Vp(idx-1), -Vb(i,j)])
+    clause.append([-Vp(idx), Vp(idx-1), -Vd(i,j)])
+
+    # 番兵: 0番目のマス以前に白マスはない
+    if idx == 1:
+        clause.append([-Vp(0)])
+
+    # 黒マスの数
     for a in X:
         if ob((i, j), a):
             # マス(i,j)は盤面の端なので黒マスはない

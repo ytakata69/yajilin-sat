@@ -30,6 +30,7 @@ def l(i, j, a):
 def c (*x): pass
 def cp(*x): pass
 def n (*x): pass
+def p (*x): pass
 
 # Read and execute commands
 lines = sys.stdin.read()
