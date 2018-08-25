@@ -235,27 +235,10 @@ for i, j in doubleloop(1, W+1, 1, H+1):
         if (x, y) < (i, j): continue
         for m in range(basedist(i,j,x,y), W * H // 2 + 1, 2):
             for a in X:
-                clause.append([-Vc(i,j,x,y,m),-Vl(x,y,a),Vcp(i,j,x,y,m,a)])
                 clause.append([-Vcp(i,j,x,y,m,a), Vc(i,j,x,y,m)])
                 clause.append([-Vcp(i,j,x,y,m,a), Vl(x,y,a)])
 
-    # 距離m-1以内で到達可能なら距離m以内でも到達可能
-    for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) < (i, j): continue
-        for m in range(basedist(i,j,x,y) + 2, W * H // 2 + 1, 2):
-            clause.append([-Vc(i,j,x,y,m-2), Vc(i,j,x,y,m)])
-
-    # 到達可能なマスと線でつながっているなら到達可能
-    for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) < (i, j): continue
-        for m in range(basedist(i,j,x,y) + 1, W * H // 2 + 1, 2):
-            for a in X:
-                if ob((x, y), a): continue
-                xp, yp = a((x, y))
-                if (xp, yp) < (i, j): continue
-                clause.append([-Vcp(i,j,x,y,m-1,a), Vc(i,j,xp,yp,m)])
-
-    # それらのときのみ到達可能
+    # 線でつながっているマスに到達可能であるときのみ到達可能
     for x, y in doubleloop(1, W+1, 1, H+1):
         if (x, y) <= (i, j): continue
         for m in range(2 - basedist(i,j,x,y), W * H // 2 + 1, 2):
@@ -317,4 +300,4 @@ for i, j in doubleloop(1, W+1, 1, H+1):
 print('Writing a CNF file', file=stderr)
 print("p cnf {} {}".format(Vlast, len(clause)))
 for c in clause:
-    print(' '.join(map(str, c + [0])))
+    print(' '.join(map(str, c)), 0)
