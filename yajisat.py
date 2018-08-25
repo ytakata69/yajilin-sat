@@ -67,6 +67,9 @@ if inputfile != None:
 # SAT符号化
 
 # 命題変数
+def basedist(i, j, x, y):
+    """マス(i,j)とマス(x,y)の奇偶が同じなら0，異なれば1"""
+    return 0 if (i + j) % 2 == (x + y) % 2 else 1
 def cell(i, j):
     """マス番号 1 〜 W*H"""
     assert 1 <= i <= W and 1 <= j <= H
@@ -83,10 +86,12 @@ def Vl(i, j, a):
     return (cell(i, j) - 1) * 4 + angle(a) + Vd(W, H)
 def Vc(i, j, x, y, m):
     assert 0 <= m <= W * H // 2
+    assert basedist(i, j, x, y) == m % 2
     v = ((cell(i, j) - 1) * W * H + cell(x, y) - 1) * (W*H//2+1) + (m + 1)
     return v + Vl(W, H, down)
 def Vcp(i, j, x, y, m, a):
     assert 0 <= m <= W * H // 2
+    assert basedist(i, j, x, y) == m % 2
     v = (Vc(i, j, x, y, m) - Vc(1, 1, 1, 1, 0)) * 4 + angle(a)
     return v + Vc(W, H, W, H, W * H // 2)
 def Vn(i, j, a, m):
@@ -222,12 +227,13 @@ for i, j in doubleloop(1, W+1, 1, H+1):
     clause.append([Vc(i,j,i,j,0)])
     for x, y in doubleloop(1, W+1, 1, H+1):
         if (x, y) <= (i, j): continue
-        clause.append([-Vc(i,j,x,y,0)])
+        if basedist(i, j, x, y) == 0:
+            clause.append([-Vc(i,j,x,y,0)])
 
     # cp(i,j,x,y,m,a) == c(i,j,x,y,m) and l(x,y,a)
     for x, y in doubleloop(1, W+1, 1, H+1):
         if (x, y) < (i, j): continue
-        for m in range(W * H // 2 + 1):
+        for m in range(basedist(i,j,x,y), W * H // 2 + 1, 2):
             for a in X:
                 clause.append([-Vc(i,j,x,y,m),-Vl(x,y,a),Vcp(i,j,x,y,m,a)])
                 clause.append([-Vcp(i,j,x,y,m,a), Vc(i,j,x,y,m)])
@@ -236,13 +242,13 @@ for i, j in doubleloop(1, W+1, 1, H+1):
     # 距離m-1以内で到達可能なら距離m以内でも到達可能
     for x, y in doubleloop(1, W+1, 1, H+1):
         if (x, y) < (i, j): continue
-        for m in range(1, W * H // 2 + 1):
-            clause.append([-Vc(i,j,x,y,m-1), Vc(i,j,x,y,m)])
+        for m in range(basedist(i,j,x,y) + 2, W * H // 2 + 1, 2):
+            clause.append([-Vc(i,j,x,y,m-2), Vc(i,j,x,y,m)])
 
     # 到達可能なマスと線でつながっているなら到達可能
     for x, y in doubleloop(1, W+1, 1, H+1):
         if (x, y) < (i, j): continue
-        for m in range(1, W * H // 2 + 1):
+        for m in range(basedist(i,j,x,y) + 1, W * H // 2 + 1, 2):
             for a in X:
                 if ob((x, y), a): continue
                 xp, yp = a((x, y))
@@ -252,8 +258,10 @@ for i, j in doubleloop(1, W+1, 1, H+1):
     # それらのときのみ到達可能
     for x, y in doubleloop(1, W+1, 1, H+1):
         if (x, y) <= (i, j): continue
-        for m in range(1, W * H // 2 + 1):
-            tmpcl = [-Vc(i,j,x,y,m), Vc(i,j,x,y,m-1)]
+        for m in range(2 - basedist(i,j,x,y), W * H // 2 + 1, 2):
+            tmpcl = [-Vc(i,j,x,y,m)]
+            if m >= 2:
+                tmpcl.append(Vc(i,j,x,y,m-2))
             for a in X:
                 if ob((x, y), a): continue
                 xp, yp = a((x, y))
@@ -268,6 +276,7 @@ for i, j in doubleloop(1, W+1, 1, H+1):
     for x, y in doubleloop(1, W+1, 1, H+1):
         if (x, y) <= (i, j): continue
         m = W * H // 2
+        if m % 2 != basedist(i,j,x,y): m -= 1
         clause.append([-Vp(idx), Vp(idx-1), Vd(x,y), Vb(x,y), Vc(i,j,x,y,m)])
 
     # idx番目のマス以前に白マスがある ⇔ idx-1番目以前にある ∨ idx番目が白マス
