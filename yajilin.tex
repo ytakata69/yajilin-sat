@@ -117,16 +117,13 @@ $X$の各要素はマスからマスへの関数．例えば$\→(i,j)=(i+1,j)$�
 \item $c'_{i,j,x,y,m,a}$は$c_{i,j,x,y,m}\land l_{x,y,a}$と等価．
   \quad
   $\begin{aligned}[t]
-   &(\N{c_{i,j,x,y,m}}\lor\N{l_{x,y,a}}\lor{c'_{i,j,x,y,m,a}})\\{}\land{}
+%  &(\N{c_{i,j,x,y,m}}\lor\N{l_{x,y,a}}\lor{c'_{i,j,x,y,m,a}})\\{}\land{}
    &(\N{c'_{i,j,x,y,m,a}}\lor{c_{i,j,x,y,m}})\\{}\land{}
    &(\N{c'_{i,j,x,y,m,a}}\lor{l_{x,y,a}}).
    \end{aligned}$
 
-\item 距離$m$以内に到達可能なら距離$m+1$以内で到達可能．
-   $\N{c_{i,j,x,y,m}}\lor c_{i,j,x,y,m+1}$.
-\item 到達可能なマスと線でつながっているとき到達可能．
-   $\N{c'_{i,j,x,y,m,a}}\lor{c_{i,j,a(x,y),m+1}}$.
-\item それらのときのみ到達可能．
+\item 距離$m$以内で到達可能か距離$m$以内で到達可能なマスと線でつながっている
+  ときのみ距離$m+1$以内で到達可能．
    \par\qquad
      $\N{c_{i,j,x,y,m+1}}\lor
       c_{i,j,x,y,m}\lor
@@ -135,10 +132,14 @@ $X$の各要素はマスからマスへの関数．例えば$\→(i,j)=(i+1,j)$�
       c'_{i,j,\↓(x,y),m,\↑}\lor
       c'_{i,j,\↑(x,y),m,\↓}$.
 
-\item 数字マスでも黒マスでもなければ互いに到達可能．
-  $d_{i,j}\lor b_{i,j}\lor
+\item 数字マスでも黒マスでもなければ到達可能
+  （最も遠いマスまでの距離は閉路の長さの半分）．
+  \begin{equation}
+   d_{i,j}\lor b_{i,j}\lor
    d_{x,y}\lor b_{x,y}\lor
-   c_{i,j,x,y,\lfloor WH/2\rfloor}$.
+   c_{i,j,x,y,\lfloor WH/2\rfloor}.
+   \label{eq:reachability}
+  \end{equation}
 \end{itemize}
 
 \subsubsection{数字は矢印の方向に入る黒マスの数を表す}
@@ -162,4 +163,70 @@ $n_{1,j,\←,0}
 \item マス$(i,j)$に矢印$a$と数字$k$が書かれている．
   $n_{i,j,a,k}\land\N{n_{i,j,a,k+1}}$.
 \end{itemize}
+
+\section{節の削減}
+
+命題変数$c_{i,j,x,y,m}$，$c'_{i,j,x,y,m,a}$，及び
+これらに関連する節の個数は$O((WH)^3)$であり，
+このSAT符号化で最もコストが大きい．
+これらの変数及び節の個数を減らす方法を考える．
+
+\newcommand{\id}{\mathit{id}}
+\advance\parskip by2pt
+\parindent=1em
+
+\subsection{マスの順序}
+
+適当な方法でマスに$1$以上$WH$以下の通し番号を付ける．
+マス$(i,j)$の通し番号を$\id(i,j)$とする．
+%通し番号の大小に従ってマスの順序を定義する．すなわち
+%$(i,j)<(x,y) :\iff \id(i,j)<\id(x,y)$.
+
+命題変数$c_{i,j,x,y,m}$（及び$c'_{i,j,x,y,m,a}$）を，
+$\id(i,j)\le\id(x,y)$である$(i,j)$, $(x,y)$に対してのみ定義する．
+これにより，これらの変数の個数と関連する節の個数を約半分に減らせる．
+
+ただし，この変更により，変数$c_{i,j,x,y,m}$の意味は
+「マス$(i,j)$からマス$(x,y)$まで，通し番号が$\id(i,j)$以上のマスのみ通って，
+距離$m$以内で到達可能」となる．
+そのため，実際は$(i,j)$から$(x,y)$まで線がつながっていても，
+$c_{i,j,x,y,\lfloor WH/2\rfloor}$が
+真になるとは限らない．
+そこで，新しく命題変数$p_k$を導入し，
+節(\ref{eq:reachability})を以下のように変更する
+（以下では数字マスでも黒マスでもないマスを空白マスと呼ぶ）．
+\begin{itemize}
+\item $p_k$: 通し番号が$k$以下の空白マスが存在する．
+\item 通し番号が最小の空白マスから他の任意の空白マスに到達可能．
+  \par\qquad
+  $\N{p_{\id(i,j)}}\lor{p_{\id(i,j)-1}}\lor
+   d_{x,y}\lor b_{x,y}\lor
+   c_{i,j,x,y,\lfloor WH/2\rfloor}$.
+\end{itemize}
+%
+$p_k$の真偽は以下の節で定義する．
+\begin{itemize}
+\item $0$番以下の空白マスは存在しない．
+  $\N{p_0}$.
+\item $k-1$番以下の空白マスが存在するか$k$番のマスが空白マスであるとき，
+  かつそのときのみ，$k$番以下の空白マスが存在する．
+  $\begin{aligned}[t]
+   &(\N{p_{\id(i,j)-1}}\lor p_{\id(i,j)}) \\ {}\land{}
+   &(b_{i,j}\lor d_{i,j}\lor p_{\id(i,j)}) \\ {}\land{}
+   &(\N{p_{\id(i,j)}}\lor p_{\id(i,j)-1}\lor \N{b_{i,j}}) \\ {}\land{}
+   &(\N{p_{\id(i,j)}}\lor p_{\id(i,j)-1}\lor \N{d_{i,j}}).
+   \end{aligned}$
+\end{itemize}
+
+\subsection{マスの偶奇}
+$i+j$が偶数のときマス$(i,j)$を偶数マスと呼び，
+そうでないとき奇数マスと呼ぶ．
+マス$(i,j)$からマス$(x,y)$までの距離は，両マスの偶奇が一致していれば必ず偶数，
+そうでなければ必ず奇数になる．
+そこで，命題変数$c_{i,j,x,y,m}$（及び$c'_{i,j,x,y,m,a}$）を，
+$(i,j)$と$(x,y)$の偶奇が一致していれば偶数の$m$に対してのみ，
+そうでなければ奇数の$m$に対してのみ，定義する．
+これにより，これらの変数の個数と関連する節の個数をさらに約半分に減らせる．
+
+
 \end{document}

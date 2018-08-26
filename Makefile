@@ -13,6 +13,8 @@ pdf: yajilin.pdf
 	dvipdfmx $<
 %.dvi: %.tex
 	platex $<
+	-grep 'Label(s) may have changed' $(<:.tex=.log) && \
+	platex $<
 
 solve: o.cnf
 	./yajisat.py --decode $(INPUT) < $< | ./draw.py
