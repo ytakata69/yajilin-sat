@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # ヤジリンをSATソルバで解く
-# 2018.8.24 y-takata
+# 2018.8.29 y-takata
 # cf.
 # ヤジリンの遊び方，ルール，解き方
 # https://www.nikoli.co.jp/ja/puzzles/yajilin/
@@ -14,7 +14,9 @@
 # $ minisat y.cnf o.txt
 # $ ./yajisat.py --decode < o.txt
 
-from sys import argv, stderr
+from sys import argv, stdout, stderr
+import os
+import gzip
 
 # コマンドライン引数
 argv.pop(0)  # コマンド名自身を削除
@@ -174,120 +176,138 @@ def doubleloop(f1, t1, f2, t2):
             yield (i, j)
 
 # 節
+def make_stable_clauses(filename):
+    """問題に依存しない節集合を生成し，filename に書き出す．"""
+    clause = []
+    for i, j in doubleloop(1, W+1, 1, H+1):
+        print('Processing cell ({}, {})'.format(i, j), file=stderr)
+
+        # 数字マスは黒マスでない
+        clause.append([-Vd(i,j), -Vb(i,j)])
+
+        for a in X:
+            # 黒マスは線が通らない
+            clause.append([-Vb(i,j), -Vl(i,j,a)])
+            # 数字マスは線が通らない
+            clause.append([-Vd(i,j), -Vl(i,j,a)])
+
+        # 黒マスはタテヨコに連続しない
+        if i < W:
+            clause.append([-Vb(i,j), -Vb(i+1,j)])
+        if j < H:
+            clause.append([-Vb(i,j), -Vb(i,j+1)])
+
+        # 線は対称
+        if i < W:
+            clause.append([-Vl(i,j,right),  Vl(i+1,j,left)])
+            clause.append([ Vl(i,j,right), -Vl(i+1,j,left)])
+        if j < H:
+            clause.append([-Vl(i,j,down),  Vl(i,j+1,up)])
+            clause.append([ Vl(i,j,down), -Vl(i,j+1,up)])
+        # 端っこ
+        for a in X:
+            if ob((i, j), a):
+                clause.append([-Vl(i,j,a)])
+
+        # たかだか2つのマスと線でつながる
+        clause.append([-Vl(i,j,left),  -Vl(i,j,right), -Vl(i,j,up)])
+        clause.append([-Vl(i,j,left),  -Vl(i,j,right), -Vl(i,j,down)])
+        clause.append([-Vl(i,j,left),  -Vl(i,j,up),    -Vl(i,j,down)])
+        clause.append([-Vl(i,j,right), -Vl(i,j,up),    -Vl(i,j,down)])
+
+        # 1マスとだけ線でつながることはない
+        clause.append([Vl(i,j,left), Vl(i,j,right), Vl(i,j,up), -Vl(i,j,down)])
+        clause.append([Vl(i,j,left), Vl(i,j,right), -Vl(i,j,up), Vl(i,j,down)])
+        clause.append([Vl(i,j,left), -Vl(i,j,right), Vl(i,j,up), Vl(i,j,down)])
+        clause.append([-Vl(i,j,left), Vl(i,j,right), Vl(i,j,up), Vl(i,j,down)])
+
+        # 自分自身のみ距離0で到達可能
+        clause.append([Vc(i,j,i,j,0)])
+        for x, y in doubleloop(1, W+1, 1, H+1):
+            if (x, y) <= (i, j): continue
+            if basedist(i, j, x, y) == 0:
+                clause.append([-Vc(i,j,x,y,0)])
+
+        # cp(i,j,x,y,m,a) == c(i,j,x,y,m) and l(x,y,a)
+        for x, y in doubleloop(1, W+1, 1, H+1):
+            if (x, y) < (i, j): continue
+            for m in range(basedist(i,j,x,y), W * H // 2 + 1, 2):
+                for a in X:
+                    clause.append([-Vcp(i,j,x,y,m,a), Vc(i,j,x,y,m)])
+                    clause.append([-Vcp(i,j,x,y,m,a), Vl(x,y,a)])
+
+        # 線でつながっているマスに到達可能であるときのみ到達可能
+        for x, y in doubleloop(1, W+1, 1, H+1):
+            if (x, y) <= (i, j): continue
+            for m in range(2 - basedist(i,j,x,y), W * H // 2 + 1, 2):
+                tmpcl = [-Vc(i,j,x,y,m)]
+                if m >= 2:
+                    tmpcl.append(Vc(i,j,x,y,m-2))
+                for a in X:
+                    if ob((x, y), a): continue
+                    xp, yp = a((x, y))
+                    if (xp, yp) < (i, j): continue
+                    tmpcl.append(Vcp(i,j,xp,yp,m-1,revers[a]))
+                clause.append(tmpcl)
+
+        # マスの通し番号 ((i,j) < (x,y) なら idx(i,j) < idx(x,y))
+        idx = (i - 1) * H + j
+
+        # 最初の白マスからすべての白マスに到達可能
+        for x, y in doubleloop(1, W+1, 1, H+1):
+            if (x, y) <= (i, j): continue
+            m = W * H // 2
+            if m % 2 != basedist(i,j,x,y): m -= 1
+            clause.append([-Vp(idx), Vp(idx-1), Vd(x,y), Vb(x,y), Vc(i,j,x,y,m)])
+
+        # idx番目のマス以前に白マスがある ⇔ idx-1番目以前にある ∨ idx番目が白マス
+        clause.append([-Vp(idx-1), Vp(idx)])
+        clause.append([Vb(i,j), Vd(i,j), Vp(idx)])
+        clause.append([-Vp(idx), Vp(idx-1), -Vb(i,j)])
+        clause.append([-Vp(idx), Vp(idx-1), -Vd(i,j)])
+
+        # 番兵: 0番目のマス以前に白マスはない
+        if idx == 1:
+            clause.append([-Vp(0)])
+
+        # 黒マスの数
+        for a in X:
+            if ob((i, j), a):
+                # マス(i,j)は盤面の端なので黒マスはない
+                clause.append([Vn(i,j,a,0)])
+                for m in range(1, max(W, H)+1):
+                    clause.append([-Vn(i,j,a,m)])
+            else:
+                # a方向の黒マスの数
+                x, y = a((i, j))
+                for m in range(0, max(W, H)+1):
+                    clause.append([-Vn(x,y,a,m), Vn(i,j,a,m)])
+                for m in range(1, max(W, H)+1):
+                    clause.append([-Vn(x,y,a,m-1), -Vb(x,y), Vn(i,j,a,m)])
+                    clause.append([-Vn(i,j,a,m), Vn(x,y,a,m), Vn(x,y,a,m-1)])
+                    clause.append([-Vn(i,j,a,m), Vn(x,y,a,m), Vb(x,y)])
+
+    # CNFファイル出力
+    print('Writing a CNF file', file=stderr)
+    with gzip.open(filename, 'wt') as f:
+        print("p cnf {} {}".format(Vlast, len(clause)), file=f)
+        for c in clause:
+            print(' '.join(map(str, c)), 0, file=f)
+
+# 問題に依存しない節集合を格納したファイル (盤面サイズに依存)
+cachefile = '{}x{}.cnf.gz'.format(W, H)
+if not os.path.exists(cachefile):
+    # 存在しなければ作成
+    make_stable_clauses(cachefile)
+
+# 問題に依存する節集合
 clause = []
 for i, j in doubleloop(1, W+1, 1, H+1):
-    print('Processing cell ({}, {})'.format(i, j), file=stderr)
-
-    # 数字マスは黒マスでない
-    clause.append([-Vd(i,j), -Vb(i,j)])
-
-    for a in X:
-        # 黒マスは線が通らない
-        clause.append([-Vb(i,j), -Vl(i,j,a)])
-        # 数字マスは線が通らない
-        clause.append([-Vd(i,j), -Vl(i,j,a)])
-
-    # 黒マスはタテヨコに連続しない
-    if i < W:
-        clause.append([-Vb(i,j), -Vb(i+1,j)])
-    if j < H:
-        clause.append([-Vb(i,j), -Vb(i,j+1)])
-
     # マス(i,j)が数字マスである or ない
     if (i,j) in digit:
         clause.append([Vd(i,j)])
     else:
         clause.append([-Vd(i,j)])
-
-    # 線は対称
-    if i < W:
-        clause.append([-Vl(i,j,right),  Vl(i+1,j,left)])
-        clause.append([ Vl(i,j,right), -Vl(i+1,j,left)])
-    if j < H:
-        clause.append([-Vl(i,j,down),  Vl(i,j+1,up)])
-        clause.append([ Vl(i,j,down), -Vl(i,j+1,up)])
-    # 端っこ
-    for a in X:
-        if ob((i, j), a):
-            clause.append([-Vl(i,j,a)])
-
-    # たかだか2つのマスと線でつながる
-    clause.append([-Vl(i,j,left),  -Vl(i,j,right), -Vl(i,j,up)])
-    clause.append([-Vl(i,j,left),  -Vl(i,j,right), -Vl(i,j,down)])
-    clause.append([-Vl(i,j,left),  -Vl(i,j,up),    -Vl(i,j,down)])
-    clause.append([-Vl(i,j,right), -Vl(i,j,up),    -Vl(i,j,down)])
-
-    # 1マスとだけ線でつながることはない
-    clause.append([Vl(i,j,left), Vl(i,j,right), Vl(i,j,up), -Vl(i,j,down)])
-    clause.append([Vl(i,j,left), Vl(i,j,right), -Vl(i,j,up), Vl(i,j,down)])
-    clause.append([Vl(i,j,left), -Vl(i,j,right), Vl(i,j,up), Vl(i,j,down)])
-    clause.append([-Vl(i,j,left), Vl(i,j,right), Vl(i,j,up), Vl(i,j,down)])
-
-    # 自分自身のみ距離0で到達可能
-    clause.append([Vc(i,j,i,j,0)])
-    for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) <= (i, j): continue
-        if basedist(i, j, x, y) == 0:
-            clause.append([-Vc(i,j,x,y,0)])
-
-    # cp(i,j,x,y,m,a) == c(i,j,x,y,m) and l(x,y,a)
-    for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) < (i, j): continue
-        for m in range(basedist(i,j,x,y), W * H // 2 + 1, 2):
-            for a in X:
-                clause.append([-Vcp(i,j,x,y,m,a), Vc(i,j,x,y,m)])
-                clause.append([-Vcp(i,j,x,y,m,a), Vl(x,y,a)])
-
-    # 線でつながっているマスに到達可能であるときのみ到達可能
-    for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) <= (i, j): continue
-        for m in range(2 - basedist(i,j,x,y), W * H // 2 + 1, 2):
-            tmpcl = [-Vc(i,j,x,y,m)]
-            if m >= 2:
-                tmpcl.append(Vc(i,j,x,y,m-2))
-            for a in X:
-                if ob((x, y), a): continue
-                xp, yp = a((x, y))
-                if (xp, yp) < (i, j): continue
-                tmpcl.append(Vcp(i,j,xp,yp,m-1,revers[a]))
-            clause.append(tmpcl)
-
-    # マスの通し番号 ((i,j) < (x,y) なら idx(i,j) < idx(x,y))
-    idx = (i - 1) * H + j
-
-    # 最初の白マスからすべての白マスに到達可能
-    for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) <= (i, j): continue
-        m = W * H // 2
-        if m % 2 != basedist(i,j,x,y): m -= 1
-        clause.append([-Vp(idx), Vp(idx-1), Vd(x,y), Vb(x,y), Vc(i,j,x,y,m)])
-
-    # idx番目のマス以前に白マスがある ⇔ idx-1番目以前にある ∨ idx番目が白マス
-    clause.append([-Vp(idx-1), Vp(idx)])
-    clause.append([Vb(i,j), Vd(i,j), Vp(idx)])
-    clause.append([-Vp(idx), Vp(idx-1), -Vb(i,j)])
-    clause.append([-Vp(idx), Vp(idx-1), -Vd(i,j)])
-
-    # 番兵: 0番目のマス以前に白マスはない
-    if idx == 1:
-        clause.append([-Vp(0)])
-
-    # 黒マスの数
-    for a in X:
-        if ob((i, j), a):
-            # マス(i,j)は盤面の端なので黒マスはない
-            clause.append([Vn(i,j,a,0)])
-            for m in range(1, max(W, H)+1):
-                clause.append([-Vn(i,j,a,m)])
-        else:
-            # a方向の黒マスの数
-            x, y = a((i, j))
-            for m in range(0, max(W, H)+1):
-                clause.append([-Vn(x,y,a,m), Vn(i,j,a,m)])
-            for m in range(1, max(W, H)+1):
-                clause.append([-Vn(x,y,a,m-1), -Vb(x,y), Vn(i,j,a,m)])
-                clause.append([-Vn(i,j,a,m), Vn(x,y,a,m), Vn(x,y,a,m-1)])
-                clause.append([-Vn(i,j,a,m), Vn(x,y,a,m), Vb(x,y)])
 
     # マス(i,j)に矢印aと数字kが書かれている
     if (i,j) in digit:
@@ -295,9 +315,18 @@ for i, j in doubleloop(1, W+1, 1, H+1):
         clause.append([ Vn(i,j,a,k)])
         clause.append([-Vn(i,j,a,k+1)])
 
+# 問題に依存しない節をキャッシュファイルから読み出して出力
+print('Loading {}'.format(cachefile), file=stderr)
+with gzip.open(cachefile, 'rt') as f:
+    for row in f:
+        if row.startswith('p'):
+            # 命題変数数, 節数
+            nvar, nclause = map(int, (row.split())[2:])
+            nclause += len(clause)
+            print("p cnf {} {}".format(Vlast, nclause))
+        else:
+            print(row, end='')
 
-# CNFファイル出力
-print('Writing a CNF file', file=stderr)
-print("p cnf {} {}".format(Vlast, len(clause)))
+# 問題に依存する節を出力
 for c in clause:
     print(' '.join(map(str, c)), 0)
