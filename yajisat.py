@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # ヤジリンをSATソルバで解く
-# 2018.8.24 y-takata
+# 2018.8.29 y-takata
 # cf.
 # ヤジリンの遊び方，ルール，解き方
 # https://www.nikoli.co.jp/ja/puzzles/yajilin/
@@ -64,6 +64,19 @@ if inputfile != None:
                 a = {'>': right, '<': left, '^': up, 'v': down}[t[3]]
                 digit[(i, j)] = (k, a)
 
+# 必ず線を引くべきマスを1個選ぶ（到達可能性を調べる起点）
+pivot = None
+for i, j in digit:
+    k, a = digit[(i, j)]
+    if k == 0:
+        x, y = i, j
+        while not ob((x, y), a):
+            x, y = a((x, y))
+            if (x, y) not in digit:
+                pivot = (x, y)
+                break
+    if pivot != None: break
+
 # SAT符号化
 
 # 命題変数
@@ -102,7 +115,7 @@ def Vp(i):
     """p_i: 数字でも黒マスでもないマスがi番目以前に存在する．"""
     assert 0 <= i <= W * H
     return i + 1 + Vn(W, H, down, max(W, H))
-Vlast = Vp(W * H)
+Vlast = Vp(W * H) if pivot == None else Vn(W, H, down, max(W, H))
 
 def celldecode(v):
     i = (v - 1) %  W + 1
@@ -173,6 +186,68 @@ def doubleloop(f1, t1, f2, t2):
         for j in range(f2, t2):
             yield (i, j)
 
+def add_reachability_clauses(i, j, clause):
+    """マス(i,j)からの到達可能性に関する節をclauseに追加する．"""
+
+    # 起点マスが存在するなら起点からの到達可能性のみ調べればよい
+    if pivot != None and pivot != (i, j): return
+
+    # 自分自身のみ距離0で到達可能
+    clause.append([Vc(i,j,i,j,0)])
+    for x, y in doubleloop(1, W+1, 1, H+1):
+        if (x, y) == (i, j): continue
+        if pivot == None and (x, y) <= (i, j): continue
+        if basedist(i, j, x, y) == 0:
+            clause.append([-Vc(i,j,x,y,0)])
+
+    # cp(i,j,x,y,m,a) == c(i,j,x,y,m) and l(x,y,a)
+    for x, y in doubleloop(1, W+1, 1, H+1):
+        if pivot == None and (x, y) < (i, j): continue
+        for m in range(basedist(i,j,x,y), W * H // 2 + 1, 2):
+            for a in X:
+                clause.append([-Vcp(i,j,x,y,m,a), Vc(i,j,x,y,m)])
+                clause.append([-Vcp(i,j,x,y,m,a), Vl(x,y,a)])
+
+    # 線でつながっているマスに到達可能であるときのみ到達可能
+    for x, y in doubleloop(1, W+1, 1, H+1):
+        if pivot == None and (x, y) <= (i, j): continue
+        for m in range(2 - basedist(i,j,x,y), W * H // 2 + 1, 2):
+            tmpcl = [-Vc(i,j,x,y,m)]
+            if m >= 2:
+                tmpcl.append(Vc(i,j,x,y,m-2))
+            for a in X:
+                if ob((x, y), a): continue
+                xp, yp = a((x, y))
+                if pivot == None and (xp, yp) < (i, j): continue
+                tmpcl.append(Vcp(i,j,xp,yp,m-1,revers[a]))
+            clause.append(tmpcl)
+
+    # マスの通し番号 ((i,j) < (x,y) なら idx(i,j) < idx(x,y))
+    idx = (i - 1) * H + j
+
+    # 起点マス（または最初の空白マス）からすべての空白マスに到達可能
+    for x, y in doubleloop(1, W+1, 1, H+1):
+        if pivot == None and (x, y) <= (i, j): continue
+        m = W * H // 2
+        if m % 2 != basedist(i,j,x,y): m -= 1
+        tempcl = [Vd(x,y), Vb(x,y), Vc(i,j,x,y,m)]
+        if pivot == None:
+            tempcl.extend([-Vp(idx), Vp(idx-1)])
+        clause.append(tempcl)
+
+    # 起点マスがあるなら「最初の空白マス」に関する節は不要
+    if pivot != None: return
+
+    # idx番目のマス以前に空白マスがある ⇔ idx-1番目以前にある ∨ idx番目が空白マス
+    clause.append([-Vp(idx-1), Vp(idx)])
+    clause.append([Vb(i,j), Vd(i,j), Vp(idx)])
+    clause.append([-Vp(idx), Vp(idx-1), -Vb(i,j)])
+    clause.append([-Vp(idx), Vp(idx-1), -Vd(i,j)])
+
+    # 番兵: 0番目のマス以前に白マスはない
+    if idx == 1:
+        clause.append([-Vp(0)])
+
 # 節
 clause = []
 for i, j in doubleloop(1, W+1, 1, H+1):
@@ -223,54 +298,8 @@ for i, j in doubleloop(1, W+1, 1, H+1):
     clause.append([Vl(i,j,left), -Vl(i,j,right), Vl(i,j,up), Vl(i,j,down)])
     clause.append([-Vl(i,j,left), Vl(i,j,right), Vl(i,j,up), Vl(i,j,down)])
 
-    # 自分自身のみ距離0で到達可能
-    clause.append([Vc(i,j,i,j,0)])
-    for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) <= (i, j): continue
-        if basedist(i, j, x, y) == 0:
-            clause.append([-Vc(i,j,x,y,0)])
-
-    # cp(i,j,x,y,m,a) == c(i,j,x,y,m) and l(x,y,a)
-    for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) < (i, j): continue
-        for m in range(basedist(i,j,x,y), W * H // 2 + 1, 2):
-            for a in X:
-                clause.append([-Vcp(i,j,x,y,m,a), Vc(i,j,x,y,m)])
-                clause.append([-Vcp(i,j,x,y,m,a), Vl(x,y,a)])
-
-    # 線でつながっているマスに到達可能であるときのみ到達可能
-    for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) <= (i, j): continue
-        for m in range(2 - basedist(i,j,x,y), W * H // 2 + 1, 2):
-            tmpcl = [-Vc(i,j,x,y,m)]
-            if m >= 2:
-                tmpcl.append(Vc(i,j,x,y,m-2))
-            for a in X:
-                if ob((x, y), a): continue
-                xp, yp = a((x, y))
-                if (xp, yp) < (i, j): continue
-                tmpcl.append(Vcp(i,j,xp,yp,m-1,revers[a]))
-            clause.append(tmpcl)
-
-    # マスの通し番号 ((i,j) < (x,y) なら idx(i,j) < idx(x,y))
-    idx = (i - 1) * H + j
-
-    # 最初の白マスからすべての白マスに到達可能
-    for x, y in doubleloop(1, W+1, 1, H+1):
-        if (x, y) <= (i, j): continue
-        m = W * H // 2
-        if m % 2 != basedist(i,j,x,y): m -= 1
-        clause.append([-Vp(idx), Vp(idx-1), Vd(x,y), Vb(x,y), Vc(i,j,x,y,m)])
-
-    # idx番目のマス以前に白マスがある ⇔ idx-1番目以前にある ∨ idx番目が白マス
-    clause.append([-Vp(idx-1), Vp(idx)])
-    clause.append([Vb(i,j), Vd(i,j), Vp(idx)])
-    clause.append([-Vp(idx), Vp(idx-1), -Vb(i,j)])
-    clause.append([-Vp(idx), Vp(idx-1), -Vd(i,j)])
-
-    # 番兵: 0番目のマス以前に白マスはない
-    if idx == 1:
-        clause.append([-Vp(0)])
+    # 到達可能性に関する節を追加
+    add_reachability_clauses(i, j, clause)
 
     # 黒マスの数
     for a in X:
