@@ -100,7 +100,8 @@ def Vl(i, j, a):
 def Vc(i, j, x, y, m):
     assert 0 <= m <= W * H // 2
     assert basedist(i, j, x, y) == m % 2
-    v = ((cell(i, j) - 1) * W * H + cell(x, y) - 1) * (W*H//2+1) + (m + 1)
+    v = (cell(i, j) - 1) * W * H if pivot == None else 0
+    v = (v + cell(x, y) - 1) * (W * H // 2 + 1) + (m + 1)
     return v + Vl(W, H, down)
 def Vcp(i, j, x, y, m, a):
     assert 0 <= m <= W * H // 2
