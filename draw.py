@@ -3,7 +3,7 @@
 
 # Draw a solution of a Yajilin problem using matplotlib.
 # Usage:
-# $ ./yajisat.py decode < o.cnf | ./draw.py
+# $ ./yajisat.py --decode < o.cnf | ./draw.py
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as tick
