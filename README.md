@@ -11,20 +11,21 @@
 
 ## 準備
 
-### インストールするもの
-
 下記が必要です．
 
 - [Minisat](http://minisat.se)（または他のSATソルバ）
 - Python 3
 - [Matplotlib](https://matplotlib.org) - 解の描画に使用
 
-### 設定
+オプション:
 
-`yajisat.py`, `draw.py` の1行目（[shebang](https://ja.wikipedia.org/wiki/シバン_(Unix))）を環境に合わせて変更してください．
+- [PyPy 3](https://pypy.org) - SAT符号化器 (`yajisat.py`) の動作が数倍程度速くなります．
 
-[PyPy 3](https://pypy.org) がインストールされている場合は，`yajisat.py`をPyPy 3で実行するようshebangを書き換えると，SAT符号化が5〜6倍程度速くなります．
+Python処理系の選択:
 
+- 下記のように動作します．コマンド名等がちがう場合は各スクリプトの先頭部分を修正してください．
+  - `yajisat.py` は `pypy3`, `pypy`, `python3`, `python` の順に探して自動選択します．
+  - `draw.py` は `python3` を使います．
 
 ## 使い方
 

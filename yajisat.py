@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/bin/sh
 # -*- coding: utf-8 -*-
 
 # ヤジリンをSATソルバで解く
@@ -13,6 +13,19 @@
 # $ ./yajisat.py > y.cnf
 # $ minisat y.cnf o.txt
 # $ ./yajisat.py --decode < o.txt
+
+# Interpreter selection trick
+# cf. e.g. https://stackoverflow.com/questions/47882916/
+''':'
+for cmd in pypy3 pypy python3 python
+do
+  test -n `which $cmd` && exec $cmd $0 "$@"
+done
+echo "No python found." 1>&2
+exit 1
+':'''
+
+# Python code starts here
 
 from sys import argv, stderr
 
