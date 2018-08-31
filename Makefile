@@ -5,7 +5,7 @@
 
 .PHONY: default all clean solve pdf
 
-default: solve
+default: clean solve
 all: pdf solve
 pdf: yajilin.pdf
 

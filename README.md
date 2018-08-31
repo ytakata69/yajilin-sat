@@ -32,13 +32,11 @@ Python処理系の選択:
 - 上図の例題をSAT符号化して解き，結果を表示します．
 
   ```sh
-  $ make clean
   $ make
   ```
 - 問題記述ファイルを入力し，それを解いた結果を表示します．
 
   ```sh
-  $ make clean
   $ make INPUT=otameshi1.yaj
   ```
 - SAT符号化についての文書 (`yajilin.tex`) を組版します．
