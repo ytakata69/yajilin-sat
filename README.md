@@ -19,7 +19,7 @@ following Web page.)
 
 下記が必要です (Required):
 
-- [Minisat](http://minisat.se)（または他のSATソルバ）(Other SAT solvers may also be ok.)
+- [Minisat](http://minisat.se)（または他のSATソルバ）(Other SAT solvers may also work.)
 - Python 3
 - [Matplotlib](https://matplotlib.org) - 解の描画に使用 (Used for drawing solutions)
 
@@ -45,8 +45,8 @@ Python処理系の選択 (The interpreter selection sequence):
   ```sh
   $ make
   ```
-- 問題記述ファイルを入力し，それを解いた結果を表示します．
-  (Solve the problem given in the specified text file, and then draw the solution.)
+- 問題記述ファイルを入力し，それを解いた結果を表示します．[ぱずぷれv3](https://github.com/sabo2/pzprv3/)形式のファイルも指定可能です．
+  (Solve the problem given in the specified text file, and then draw the solution. You can also specify a file in the [PUZ-PRE v3](https://github.com/sabo2/pzprv3/) format.)
 
   ```sh
   $ make INPUT=otameshi1.yaj
@@ -58,10 +58,17 @@ Python処理系の選択 (The interpreter selection sequence):
   $ make pdf
   ```
 
+### 入力ファイル - Input File Format
+
 問題記述ファイルの構文は `otameshi1.yaj` 中のコメントを参照してください．
 (Please see the comments written in `otameshi1.yaj` that describe the format of the input files.)
+
+また，[ぱずぷれv3](https://github.com/sabo2/pzprv3/)形式のファイルも入力できます．ファイル形式はファイルの先頭行で判断します．
+(The SAT-encoding program also accepts text files in [PUZ-PRE v3](https://github.com/sabo2/pzprv3/) format.
+It distinguishes the file formats by looking the first line of that file.)
 
 ## SAT符号化 - SAT Encoding
 
 `yajilin.tex` に説明を記述しました（[PDF](https://raw.githubusercontent.com/wiki/ytakata69/yajilin-sat/yajilin.pdf)）．    
-Please see `yajilin.tex` and its [PDF](https://raw.githubusercontent.com/wiki/ytakata69/yajilin-sat/yajilin.pdf).
+Please see `yajilin.tex` and its [PDF](https://raw.githubusercontent.com/wiki/ytakata69/yajilin-sat/yajilin.pdf)
+for the details of the SAT encoding.

@@ -68,12 +68,33 @@ digit = {
 }
 
 # 盤面をファイルから読み出す Load the game board definition from a file.
+
+def load_puzpre(f):
+    """Load a game board definition in the PUZ-PRE v3 format.
+       cf. https://github.com/sabo2/pzprv3/"""
+    global W, H, digit
+    assert f.readline().strip() == 'yajirin'
+    H = int(f.readline())
+    W = int(f.readline())
+    digit = {}
+    for j in range(H):
+        t = f.readline().split()
+        assert len(t) == W
+        for i, x in enumerate(t):
+            if x == '.': continue
+            a, k = map(int, x.split(sep=','))
+            a = {1: up, 2: down, 3: left, 4: right}[a]
+            digit[(i+1, j+1)] = (k, a)
+
 if inputfile != None:
     with open(inputfile, 'r') as f:
         first = True
         for row in f:
             if row.strip().startswith('#') or row.strip() == '':
                 continue
+            if first and row.startswith('pzprv3'):
+                load_puzpre(f)
+                break
             if first:
                 W, H = [int(t) for t in row.split()]
                 digit = {}
