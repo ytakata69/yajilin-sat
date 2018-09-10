@@ -2,10 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # ヤジリンをSATソルバで解く
+# Solving Yajilin problems with a SAT solver.
 # 2018.8.29 y-takata
 # cf.
 # ヤジリンの遊び方，ルール，解き方
+# Puzzles > Yajilin
 # https://www.nikoli.co.jp/ja/puzzles/yajilin/
+# https://www.nikoli.co.jp/en/puzzles/yajilin.html
 
 # usage:
 #   yajisat.py [-d | --decode] [-v | --verbose] [<inputfile>]
@@ -29,14 +32,14 @@ exit 1
 
 from sys import argv, stderr
 
-# コマンドライン引数
-argv.pop(0)  # コマンド名自身を削除
+# コマンドライン引数 Command-line arguments
+argv.pop(0)  # コマンド名自身を削除 Remove the command itself
 decode_mode  = '-d' in argv or '--decode'  in argv
 verbose_mode = '-v' in argv or '--verbose' in argv
 inputfile = \
     ([v for v in argv if not v.startswith('-')] + [None])[0]
 
-# 方向を表す諸定数
+# 方向を表す諸定数 Definitions about directions
 left  = lambda x: (x[0] - 1, x[1])
 right = lambda x: (x[0] + 1, x[1])
 up    = lambda x: (x[0],     x[1] - 1)
@@ -46,13 +49,17 @@ revers = {left: right, right: left, up: down, down: up}
 prnt   = [None, "'<'", "'>'", "'^'", "'v'"]
 def ob(x, a): return not(1 <= a(x)[0] <= W and 1 <= a(x)[1] <= H)
 
-# 盤面
+# 盤面 The game board
 
 # 「ヤジリンの遊び方，ルール，解き方」の例題
+# Sample problem on the Yajilin Web page
 # https://www.nikoli.co.jp/ja/puzzles/yajilin/
-W = 7  # 幅
-H = 7  # 高さ
-digit = { # (列, 行): (数字, 矢印) 列・行は1から
+W = 7  # 幅 Width
+H = 7  # 高さ Height
+
+# (列, 行): (数字, 矢印) 列・行は1から
+# (column, row): (digit, direction)  The column and row are 1-based.
+digit = {
     (3,2): (1,up),
     (6,2): (1,left),
     (2,5): (1,up),
@@ -60,7 +67,7 @@ digit = { # (列, 行): (数字, 矢印) 列・行は1から
     (3,7): (0,left)
 }
 
-# 盤面をファイルから読み出す
+# 盤面をファイルから読み出す Load the game board definition from a file.
 if inputfile != None:
     with open(inputfile, 'r') as f:
         first = True
@@ -78,6 +85,7 @@ if inputfile != None:
                 digit[(i, j)] = (k, a)
 
 # 必ず線を引くべきマスを1個選ぶ（到達可能性を調べる起点）
+# Choose one cell ("pivot") that must contain a line.
 pivot = None
 for i, j in digit:
     k, a = digit[(i, j)]
@@ -90,18 +98,20 @@ for i, j in digit:
                 break
     if pivot != None: break
 
-# SAT符号化
+# SAT符号化 SAT encoding
 
-# 命題変数
+# 命題変数 Propositional variable
 def basedist(i, j, x, y):
-    """マス(i,j)とマス(x,y)の奇偶が同じなら0，異なれば1"""
+    """マス(i,j)とマス(x,y)の奇偶が同じなら0，異なれば1.
+       0 if the 'parity' of cells (i,j) and (x,y) are the same.
+       1 otherwise."""
     return 0 if (i + j) % 2 == (x + y) % 2 else 1
 def cell(i, j):
-    """マス番号 1 〜 W*H"""
+    """マス番号 Cell ID (1 〜 W*H)"""
     assert 1 <= i <= W and 1 <= j <= H
     return (j-1) * W + i
 def angle(a):
-    """方向番号 1〜4"""
+    """方向番号 Direction ID (1〜4)"""
     assert a in X
     return {left: 1, right: 2, up: 3, down: 4}[a]
 def Vb(i, j):
@@ -126,7 +136,8 @@ def Vn(i, j, a, m):
     v = ((cell(i, j) - 1) * 4 + angle(a) - 1) * (max(W, H) + 1) + (m + 1)
     return v + Vcp(W, H, W, H, W * H // 2, down)
 def Vp(i):
-    """p_i: 数字でも黒マスでもないマスがi番目以前に存在する．"""
+    """p_i: 数字でも黒マスでもないマスがi番目以前に存在する．
+       p_i: there is a cell whose ID < i and that must contain a line."""
     assert 0 <= i <= W * H
     return i + 1 + Vn(W, H, down, max(W, H))
 Vlast = Vp(W * H) if pivot == None else Vn(W, H, down, max(W, H))
@@ -180,7 +191,7 @@ def Vdecode(v):
     else:
         raise
 
-# 復号モード
+# 復号モード Decoding mode
 if decode_mode:
     input()  # skip the header (SAT or UNSAT)
     lit = [int(t) for t in input().split() if int(t) >= 0]
@@ -193,7 +204,7 @@ if decode_mode:
     exit()
 
 
-# 符号化モード
+# 符号化モード Encoding mode
 
 def doubleloop(f1, t1, f2, t2):
     for i in range(f1, t1):
@@ -201,12 +212,16 @@ def doubleloop(f1, t1, f2, t2):
             yield (i, j)
 
 def add_reachability_clauses(i, j, clause):
-    """マス(i,j)からの到達可能性に関する節をclauseに追加する．"""
+    """マス(i,j)からの到達可能性に関する節をclauseに追加する．
+       Add clauses to check the reachability from cell (i,j)."""
 
     # 起点マスが存在するなら起点からの到達可能性のみ調べればよい
+    # If the pivot exists, we only check the reachability from the pivot.
     if pivot != None and pivot != (i, j): return
 
     # 自分自身のみ距離0で到達可能
+    # The cell (i,j) is the only reachable cell
+    # from the cell (i,j) itself within the distance of zero.
     clause.append([Vc(i,j,i,j,0)])
     for x, y in doubleloop(1, W+1, 1, H+1):
         if (x, y) == (i, j): continue
@@ -223,6 +238,7 @@ def add_reachability_clauses(i, j, clause):
                 clause.append([-Vcp(i,j,x,y,m,a), Vl(x,y,a)])
 
     # 線でつながっているマスに到達可能であるときのみ到達可能
+    # A cell is reachable only if it is linked to a reachable cell.
     for x, y in doubleloop(1, W+1, 1, H+1):
         if pivot == None and (x, y) <= (i, j): continue
         for m in range(2 - basedist(i,j,x,y), W * H // 2 + 1, 2):
@@ -236,10 +252,12 @@ def add_reachability_clauses(i, j, clause):
                 tmpcl.append(Vcp(i,j,xp,yp,m-1,revers[a]))
             clause.append(tmpcl)
 
-    # マスの通し番号 ((i,j) < (x,y) なら idx(i,j) < idx(x,y))
+    # マスの通し番号 ((i,j) < (x,y) なら    idx(i,j) < idx(x,y))
+    # ID of the cell ((i,j) < (x,y) implies idx(i,j) < idx(x,y))
     idx = (i - 1) * H + j
 
     # 起点マス（または最初の空白マス）からすべての空白マスに到達可能
+    # Every empty cell is reachable from the pivot (or the first empty cell).
     for x, y in doubleloop(1, W+1, 1, H+1):
         if pivot == None and (x, y) <= (i, j): continue
         m = W * H // 2
@@ -250,80 +268,93 @@ def add_reachability_clauses(i, j, clause):
         clause.append(tempcl)
 
     # 起点マスがあるなら「最初の空白マス」に関する節は不要
+    # If the pivot exists, then we don't need to find "the first empty cell".
     if pivot != None: return
 
-    # idx番目のマス以前に空白マスがある ⇔ idx-1番目以前にある ∨ idx番目が空白マス
+    # idx番目のマス以前に空白マスがある ⇔ idx-1番目以前にある∨ idx番目が空白マス
+    # An empty cell exists whose ID <= idx if and only if
+    # an empty cell exists whose ID <= idx - 1 or the idx-th cell is empty.
     clause.append([-Vp(idx-1), Vp(idx)])
     clause.append([Vb(i,j), Vd(i,j), Vp(idx)])
     clause.append([-Vp(idx), Vp(idx-1), -Vb(i,j)])
     clause.append([-Vp(idx), Vp(idx-1), -Vd(i,j)])
 
-    # 番兵: 0番目のマス以前に白マスはない
+    # 番兵: 0番目のマス以前に空白マスはない
+    # A sentinel: no empty cell whose ID <= 0.
     if idx == 1:
         clause.append([-Vp(0)])
 
-# 節
+# 節 Clauses
 clause = []
 for i, j in doubleloop(1, W+1, 1, H+1):
     print('Processing cell ({}, {})'.format(i, j), file=stderr)
 
     # 数字マスは黒マスでない
+    # A cell with a number never be a black cell.
     clause.append([-Vd(i,j), -Vb(i,j)])
 
     for a in X:
         # 黒マスは線が通らない
+        # A black cell never contain a line.
         clause.append([-Vb(i,j), -Vl(i,j,a)])
         # 数字マスは線が通らない
+        # A cell with a number never contain a line.
         clause.append([-Vd(i,j), -Vl(i,j,a)])
 
     # 黒マスはタテヨコに連続しない
+    # Two black cells never touch holizontally or vertically.
     if i < W:
         clause.append([-Vb(i,j), -Vb(i+1,j)])
     if j < H:
         clause.append([-Vb(i,j), -Vb(i,j+1)])
 
     # マス(i,j)が数字マスである or ない
+    # Cell (i,j) is (or is not) a cell with a number.
     if (i,j) in digit:
         clause.append([Vd(i,j)])
     else:
         clause.append([-Vd(i,j)])
 
-    # 線は対称
+    # 線は対称 The links are symmetric.
     if i < W:
         clause.append([-Vl(i,j,right),  Vl(i+1,j,left)])
         clause.append([ Vl(i,j,right), -Vl(i+1,j,left)])
     if j < H:
         clause.append([-Vl(i,j,down),  Vl(i,j+1,up)])
         clause.append([ Vl(i,j,down), -Vl(i,j+1,up)])
-    # 端っこ
+    # 端っこ The edge of the game board
     for a in X:
         if ob((i, j), a):
             clause.append([-Vl(i,j,a)])
 
     # たかだか2つのマスと線でつながる
+    # Each cell is linked to at most two cells.
     clause.append([-Vl(i,j,left),  -Vl(i,j,right), -Vl(i,j,up)])
     clause.append([-Vl(i,j,left),  -Vl(i,j,right), -Vl(i,j,down)])
     clause.append([-Vl(i,j,left),  -Vl(i,j,up),    -Vl(i,j,down)])
     clause.append([-Vl(i,j,right), -Vl(i,j,up),    -Vl(i,j,down)])
 
     # 1マスとだけ線でつながることはない
+    # Each cell never be linked to exactly one cell.
     clause.append([Vl(i,j,left), Vl(i,j,right), Vl(i,j,up), -Vl(i,j,down)])
     clause.append([Vl(i,j,left), Vl(i,j,right), -Vl(i,j,up), Vl(i,j,down)])
     clause.append([Vl(i,j,left), -Vl(i,j,right), Vl(i,j,up), Vl(i,j,down)])
     clause.append([-Vl(i,j,left), Vl(i,j,right), Vl(i,j,up), Vl(i,j,down)])
 
-    # 到達可能性に関する節を追加
+    # 到達可能性に関する節を追加 Add clauses to check reachability.
     add_reachability_clauses(i, j, clause)
 
-    # 黒マスの数
+    # 黒マスの数 The number of black cells
     for a in X:
         if ob((i, j), a):
             # マス(i,j)は盤面の端なので黒マスはない
+            # Cell (i,j) is on the edge of the game board and
+            # no black cell exists in that direction.
             clause.append([Vn(i,j,a,0)])
             for m in range(1, max(W, H)+1):
                 clause.append([-Vn(i,j,a,m)])
         else:
-            # a方向の黒マスの数
+            # a方向の黒マスの数 The number of black cells in the direction a.
             x, y = a((i, j))
             for m in range(0, max(W, H)+1):
                 clause.append([-Vn(x,y,a,m), Vn(i,j,a,m)])
@@ -333,13 +364,14 @@ for i, j in doubleloop(1, W+1, 1, H+1):
                 clause.append([-Vn(i,j,a,m), Vn(x,y,a,m), Vb(x,y)])
 
     # マス(i,j)に矢印aと数字kが書かれている
+    # Cell (i,j) contains an arrow a and a number k.
     if (i,j) in digit:
         k, a = digit[(i, j)]
         clause.append([ Vn(i,j,a,k)])
         clause.append([-Vn(i,j,a,k+1)])
 
 
-# CNFファイル出力
+# CNFファイル出力 Output a CNF file.
 print('Writing a CNF file', file=stderr)
 print("p cnf {} {}".format(Vlast, len(clause)))
 for c in clause:
