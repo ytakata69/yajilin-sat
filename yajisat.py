@@ -143,13 +143,13 @@ def Vl(i, j, a):
     return (cell(i, j) - 1) * 4 + angle(a) + Vd(W, H)
 def Vc(i, j, x, y, m):
     assert 0 <= m <= W * H // 2
-    assert basedist(i, j, x, y) == m % 2
+    assert (i, j) == (x, y) or basedist(i, j, x, y) == m % 2
     v = (cell(i, j) - 1) * W * H if pivot == None else 0
     v = (v + cell(x, y) - 1) * (W * H // 2 + 1) + (m + 1)
     return v + Vl(W, H, down)
 def Vcp(i, j, x, y, m, a):
     assert 0 <= m <= W * H // 2
-    assert basedist(i, j, x, y) == m % 2
+    assert (i, j) == (x, y) or basedist(i, j, x, y) == m % 2
     v = (Vc(i, j, x, y, m) - Vc(1, 1, 1, 1, 0)) * 4 + angle(a)
     return v + Vc(W, H, W, H, W * H // 2)
 def Vn(i, j, a, m):
