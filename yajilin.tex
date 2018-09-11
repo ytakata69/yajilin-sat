@@ -22,7 +22,7 @@ https://www.nikoli.co.jp/ja/puzzles/yajilin/
 
 \section{準備}
 盤面の幅を$W$，高さを$H$とする．
-第$i$列第$j$行のマスをマス$(i,j)$と呼ぶ（$1\le i\le W$, $1\le j\le H$）．
+第$i$列第$j$行のマスをマス$(i,j)$と呼ぶ ($1\le i\le W$, $1\le j\le H$)．
 
 $X=\{\←,\→,\↑,\↓\}$とする．
 $X$の各要素はマスからマスへの関数．例えば$\→(i,j)=(i+1,j)$．
@@ -33,7 +33,7 @@ $X$の各要素はマスからマスへの関数．例えば$\→(i,j)=(i+1,j)$�
 \begin{itemize}
 \item $b_{i,j}$: マス$(i,j)$は黒．
 \item $d_{i,j}$: マス$(i,j)$は数字のマス．
-\item $l_{i,j,a}$: マス$(i,j)$がマス$a(i,j)$と線でつながっている（$a\in X$）．
+\item $l_{i,j,a}$: マス$(i,j)$がマス$a(i,j)$と線でつながっている ($a\in X$)．
 \item $c_{i,j,x,y,m}$: マス$(i,j)$からマス$(x,y)$まで線をたどって
   距離$m$以下で到達可能．
 \item $c'_{i,j,x,y,m,a}$: $c_{i,j,x,y,m}\land l_{x,y,a}$を表す補助変数．
@@ -62,11 +62,12 @@ $X$の各要素はマスからマスへの関数．例えば$\→(i,j)=(i+1,j)$�
   $\N{d_{i,j}}\lor\N{l_{i,j,a}}$.
 
 \item 黒マスはタテヨコに連続しない．
-  $\begin{aligned}[t]
-   & (\N{b_{i,j}}\lor\N{b_{i+1,j}}) \\
-   {}\land{}
-   & (\N{b_{i,j}}\lor\N{b_{i,j+1}}).
-  \end{aligned}$
+  \quad
+  $
+    (\N{b_{i,j}}\lor\N{b_{i+1,j}})
+   \ \land\
+    (\N{b_{i,j}}\lor\N{b_{i,j+1}}).
+  $
 
 \item マス$(i,j)$が数字マスなら $d_{i,j}$．
 \item マス$(i,j)$が数字マスでなければ $\N{d_{i,j}}$．
@@ -111,16 +112,16 @@ $X$の各要素はマスからマスへの関数．例えば$\→(i,j)=(i+1,j)$�
 \subsubsection{全体で一つの輪っかになる}
 
 \begin{itemize}
-\item 自分自身のみ距離0で到達可能．
+\item 自分自身のみ距離0で到達可能．\quad
   $c_{i,j,i,j,0}\land \bigwedge_{(x,y)\ne(i,j)} \N{c_{i,j,x,y,0}}$.
 
 \item $c'_{i,j,x,y,m,a}$は$c_{i,j,x,y,m}\land l_{x,y,a}$と等価．
   \quad
-  $\begin{aligned}[t]
+  $
 %  &(\N{c_{i,j,x,y,m}}\lor\N{l_{x,y,a}}\lor{c'_{i,j,x,y,m,a}})\\{}\land{}
-   &(\N{c'_{i,j,x,y,m,a}}\lor{c_{i,j,x,y,m}})\\{}\land{}
-   &(\N{c'_{i,j,x,y,m,a}}\lor{l_{x,y,a}}).
-   \end{aligned}$
+   (\N{c'_{i,j,x,y,m,a}}\lor{c_{i,j,x,y,m}})\ {}\land{}\
+   (\N{c'_{i,j,x,y,m,a}}\lor{l_{x,y,a}}).
+   $
 
 \item 距離$m$以内で到達可能か距離$m$以内で到達可能なマスと線でつながっている
   ときのみ距離$m+1$以内で到達可能．
@@ -145,7 +146,7 @@ $X$の各要素はマスからマスへの関数．例えば$\→(i,j)=(i+1,j)$�
 \subsubsection{数字は矢印の方向に入る黒マスの数を表す}
 
 \begin{itemize}
-\item マス$(1,j)$より左に黒マスはない．
+\item マス$(1,j)$より左に黒マスはない．\quad
 $n_{1,j,\←,0}
 \land \N{n_{1,j,\←,1}} \land\ldots\land \N{n_{1,j,\←,W}}$.
 
@@ -201,6 +202,7 @@ $n_{1,j,\←,0}
 多くのヤジリン問題は$0$が書かれた数字マスを含むので，
 適用できる場合が多いと考えられる）．
 
+
 \subsection{マスの順序}
 
 上記の「起点マス」法が適用できないときに適用する．
@@ -222,6 +224,7 @@ $c_{i,j,x,y,\lfloor WH/2\rfloor}$が
 真になるとは限らない．
 そこで，新しく命題変数$p_k$を導入し，
 節(\ref{eq:reachability})を以下のように変更する．
+%
 \begin{itemize}
 \item $p_k$: 通し番号が$k$以下の空白マスが存在する．
 \item 通し番号が最小の空白マスから他の任意の空白マスに到達可能．

@@ -1,0 +1,286 @@
+\documentclass[a4paper]{article}
+\usepackage{amsmath}
+
+\parindent=0pt
+\setcounter{secnumdepth}{2}
+
+\newcommand{\N}[1]{\overline{#1\vphantom{l}}}
+\renewcommand{\L}{{\leftarrow}}
+\newcommand{\R}{{\rightarrow}}
+\newcommand{\U}{{\uparrow}}
+\newcommand{\D}{{\downarrow}}
+
+\begin{document}
+
+\section*{Solving a Yajilin problem with a SAT solver}
+\begin{flushright}
+2018.9.12 y-takata
+\end{flushright}
+
+Yajilin's rule and how to play it: \\
+https://www.nikoli.co.jp/en/puzzles/yajilin.html
+
+\section{Preliminaries}
+Let $W$ and $H$ be the width and height of the game board, respectively.
+``Cell $(i,j)$'' denotes the cell at the $i$th column and the $j$th row
+($1\le i\le W$, $1\le j\le H$).
+%
+Let $X=\{,\R,\U,\D\}$.
+Each element of $X$ is a function from a cell to a cell:
+e.g., $\R(i,j)=(i+1,j)$.
+
+\section{SAT encoding}
+\subsection{Propositional variables}
+\begin{itemize}
+\item $b_{i,j}$: Cell $(i,j)$ is black.
+\item $d_{i,j}$: Cell $(i,j)$ contains a number.
+\item $l_{i,j,a}$:
+  Cells $(i,j)$ and $a(i,j)$ are linked with a line ($a\in X$).
+\item $c_{i,j,x,y,m}$:
+  From cell $(i,j)$, you can go to cell $(x,y)$ along the lines
+  within $m$ steps.
+\item $c'_{i,j,x,y,m,a}$:
+  Auxiliary variables for representing $c_{i,j,x,y,m}\land l_{x,y,a}$.
+\item $n_{i,j,a,m}$:
+  There are at least $m$ black cells in the direction $a$ of
+  cell $(i,j)$ (excluding the cell $(i,j)$).
+\end{itemize}
+
+\subsection{Puzzle rules}
+\subsubsection{Basic rules}
+\begin{itemize}
+\item Cells with numbers never be black. \
+  $\N{d_{i,j}}\lor\N{b_{i,j}}$.
+
+\item Black cells do not contain a line. \
+  $\N{b_{i,j}}\lor\N{l_{i,j,a}}$.
+
+\item Cells with numbers does not contain a line. \
+  $\N{d_{i,j}}\lor\N{l_{i,j,a}}$.
+
+\item
+  Two black cells never touch horizontally or vertically.
+  $
+    (\N{b_{i,j}}\lor\N{b_{i+1,j}})
+   \ {}\land{}\
+    (\N{b_{i,j}}\lor\N{b_{i,j+1}}).
+  $
+
+\item
+  If cell $(i,j)$ contains a number, then $d_{i,j}$.
+\item
+  If cell $(i,j)$ does not contain a number, then $\N{d_{i,j}}$.
+\end{itemize}
+
+\subsubsection{Lines}
+
+\begin{itemize}
+\item The link between cells are symmetric.
+  \par\qquad
+  $\begin{alignedat}[t]{4}
+   & (\N{l_{i,j,\R}} &&\lor   l_{i+1,j,\L})  &&\land
+     (   l_{i,j,\R}  &&\lor\N{l_{i+1,j,\L}}) \\ {}\land{}
+   & (\N{l_{i,j,\D}} &&\lor   l_{i,j+1,\U})  &&\land
+     (   l_{i,j,\D}  &&\lor\N{l_{i,j+1,\U}}).
+  \end{alignedat}$
+
+\item No line goes outside of the board. \
+  $\begin{alignedat}[t]{3}
+   \text{(horizontally)}\quad &
+   \N{l_{1,j,\L}} &&\land \N{l_{W,j,\R}} \\
+   \text{(vertically)}\quad &
+   \N{l_{i,1,\U}} &&\land \N{l_{i,H,\D}}
+   \end{alignedat}$
+
+\item
+  Every cell has at most two linked cells.  \
+  $\begin{alignedat}[t]{3}
+   & (\N{l_{i,j,\L}}&&\lor\N{l_{i,j,\R}}&&\lor\N{l_{i,j,\U}}) \\ {}\land{}
+   & (\N{l_{i,j,\L}}&&\lor\N{l_{i,j,\R}}&&\lor\N{l_{i,j,\D}}) \\ {}\land{}
+   & (\N{l_{i,j,\L}}&&\lor\N{l_{i,j,\U}}&&\lor\N{l_{i,j,\D}}) \\ {}\land{}
+   & (\N{l_{i,j,\R}}&&\lor\N{l_{i,j,\U}}&&\lor\N{l_{i,j,\D}}).
+  \end{alignedat}$
+
+\item
+  No cell is linked with exactly one cell. \
+  $\begin{alignedat}[t]{1}
+   &(l_{i,j,\L}\lor l_{i,j,\R}\lor l_{i,j,\U}\lor\N{l_{i,j,\D}})\\{}\land{}
+   &(l_{i,j,\L}\lor l_{i,j,\R}\lor\N{l_{i,j,\U}}\lor l_{i,j,\D})\\{}\land{}
+   &(l_{i,j,\L}\lor\N{l_{i,j,\R}}\lor l_{i,j,\U}\lor l_{i,j,\D})\\{}\land{}
+   &(\N{l_{i,j,\L}}\lor l_{i,j,\R}\lor l_{i,j,\U}\lor l_{i,j,\D}).
+  \end{alignedat}$
+\end{itemize}
+
+\subsubsection{The lines form a single loop}
+
+\begin{itemize}
+\item
+  Every cell is reachable from itself within zero step, and
+  no cell is reachable from another cell within zero step. \
+  $c_{i,j,i,j,0}\land \bigwedge_{(x,y)\ne(i,j)} \N{c_{i,j,x,y,0}}$.
+
+\item
+  $c'_{i,j,x,y,m,a}$ is equivalent to $c_{i,j,x,y,m}\land l_{x,y,a}$.
+  \par\qquad
+  $
+%  &(\N{c_{i,j,x,y,m}}\lor\N{l_{x,y,a}}\lor{c'_{i,j,x,y,m,a}})\\{}\land{}
+   (\N{c'_{i,j,x,y,m,a}}\lor{c_{i,j,x,y,m}})\ {}\land{}\
+   (\N{c'_{i,j,x,y,m,a}}\lor{l_{x,y,a}}).
+   $
+
+\item
+  A cell is reachable from cell $(i,j)$ within $m+1$ steps
+  only if it is reachable within $m$ steps or
+  it is linked to a cell that is reachable within $m$ steps.
+   \par\qquad
+     $\begin{alignedat}[t]{2}
+      \N{c_{i,j,x,y,m+1}}\lor
+      c_{i,j,x,y,m} &\lor
+      c'_{i,j,\R(x,y),m,\L} &&\lor
+      c'_{i,j,\D(x,y),m,\U} \\ &\lor
+      c'_{i,j,\L(x,y),m,\R} &&\lor
+      c'_{i,j,\U(x,y),m,\D}.
+      \end{alignedat}$
+
+\item
+  Every two cells that are not black and do not have numbers
+  must be reachable from each other.
+  (The number of steps between those two cells
+  is at most the half of the length of the loop.)
+  \begin{equation}
+   d_{i,j}\lor b_{i,j}\lor
+   d_{x,y}\lor b_{x,y}\lor
+   c_{i,j,x,y,\lfloor WH/2\rfloor}.
+   \label{eq:reachability}
+  \end{equation}
+\end{itemize}
+
+\subsubsection{The number of black cells}
+
+\begin{itemize}
+\item
+  No black cell in the left of cell $(1,j)$. \
+$n_{1,j,\L,0}
+\land \N{n_{1,j,\L,1}} \land\ldots\land \N{n_{1,j,\L,W}}$.
+
+\item
+  The number of black cells in the left of cell $(i+1,j)$.
+  \par\qquad
+  $\begin{aligned}[t]
+   &(\N{n_{i,j,\L,m}}\lor n_{i+1,j,\L,m})\\{}\land{}
+   &(\N{n_{i,j,\L,m-1}}\lor\N{b_{i,j}}\lor n_{i+1,j,\L,m})\\{}\land{}
+   &(\N{n_{i+1,j,\L,m}}\lor n_{i,j,\L,m}\lor n_{i,j,\L,m-1})\\
+   {}\land{}
+   &(\N{n_{i+1,j,\L,m}}\lor n_{i,j,\L,m}\lor b_{i,j}).
+   \end{aligned}$
+
+\item Similar clauses for the other directions.
+
+\item
+  Cell $(i,j)$ has an arrow $a$ and a number $k$. \
+  $n_{i,j,a,k}\land\N{n_{i,j,a,k+1}}$.
+\end{itemize}
+
+\section{Reducing the number of clauses}
+
+(In the following, ``an empty cell'' means a cell that is not black
+and does not contain a number.)
+
+\newcommand{\id}{\mathit{id}}
+\advance\parskip by2pt
+\parindent=1em
+
+\subsection{The ``pivot'' cell}
+
+It is sufficient to check each empty cell
+is reachable from a single ``pivot'' cell, instead of
+checking every two empty cells are reachable
+from each other.
+In other words,
+we can fix a pair $i,j$ for
+the variables $c_{i,j,x,y,m}$ and $c'_{i,j,x,y,m,a}$ to
+some single coordinate.
+By doing this, the number of variables and clauses
+is reduced to $O((WH)^2)$.
+
+Note that the pivot cell must be a cell without a number
+that \emph{never} be black
+(e.g., a cell at which a cell with $0$ is pointing,
+a cell next to a cell that must be black, etc.).
+We have to find any of such cells before the SAT encoding,
+and then we generate the clauses only for that pivot cell.
+(If we cannot find such a pivot cell, then
+we cannot apply this optimization.
+However, most Yajilin problems contain cells with $0$,
+and so this optimization may be applicable in many cases.)
+
+
+\subsection{Order of the cells}
+
+The method in this section is meaningful only when
+the above \emph{pivot-cell} method is not applicable.
+
+Give a serial number from $1$ to $WH$ to each cell.
+Let $\id(i,j)$ denote the serial number of cell $(i,j)$.
+We define the variables $c_{i,j,x,y,m}$ and $c'_{i,j,x,y,m,a}$
+only when $\id(i,j)\le\id(x,y)$.
+By doing this, we can reduce the number of these variables and
+related clauses by half.
+%
+However, the meaning of $c_{i,j,x,y,m}$ changes into:
+``Cell $(x,y)$ is reachable from cell $(i,j)$ within $m$ steps
+by going through only cells whose serial numbers are greater than or equal to
+$\id(i,j)$.''
+So $c_{i,j,x,y,\lfloor WH/2\rfloor}$ is not necessarily true when
+cell $(x,y)$ is reachable from cell $(i,j)$ along the lines.
+Hence, we introduce new propositional variables $p_k$ and
+modify the clause~(\ref{eq:reachability}) as follows:
+
+\begin{itemize}
+\item $p_k$:
+  There exists an empty cell whose serial number is less than or equal to $k$.
+\item
+  Every empty cell is reachable
+  from the empty cell with the least serial number.
+  \par\qquad
+  $\N{p_{\id(i,j)}}\lor{p_{\id(i,j)-1}}\lor
+   d_{x,y}\lor b_{x,y}\lor
+   c_{i,j,x,y,\lfloor WH/2\rfloor}$.
+\end{itemize}
+%
+The truth of $p_k$ is defined as follows:
+\begin{itemize}
+\item
+  No empty cell whose serial number is zero. \
+  $\N{p_0}$.
+\item
+  There exists an empty cell whose serial number is less than or equal to
+  $k$ if and only if there exists an empty cell whose serial number
+  is less than $k$ or the $k$th cell is empty.
+  \par\qquad
+  $\begin{aligned}[t]
+   &(\N{p_{\id(i,j)-1}}\lor p_{\id(i,j)}) \\ {}\land{}
+   &(b_{i,j}\lor d_{i,j}\lor p_{\id(i,j)}) \\ {}\land{}
+   &(\N{p_{\id(i,j)}}\lor p_{\id(i,j)-1}\lor \N{b_{i,j}}) \\ {}\land{}
+   &(\N{p_{\id(i,j)}}\lor p_{\id(i,j)-1}\lor \N{d_{i,j}}).
+   \end{aligned}$
+\end{itemize}
+
+\subsection{Parity of the cells}
+
+We call cell $(i,j)$ ``even'' if $i+j$ is even and
+call it ``odd'' otherwise.
+The number of steps between cells $(i,j)$ and $(x,y)$
+along to the lines must be even if and only if
+the parity of the two cells are equal.
+So we define the variables $c_{i,j,x,y,m}$ and $c'_{i,j,x,y,m,a}$
+only for even $m$ when the parity of $(i,j)$ equals that of $(x,y)$
+and only for odd $m$ otherwise.
+By doing this, we can reduce the number of these variables and
+related clauses by half.
+
+We can apply this optimization
+in parallel with the \emph{pivot-cell} method
+and the \emph{order-of-cells} method.
+
+\end{document}

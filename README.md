@@ -87,5 +87,5 @@ before the encoding the SAT encoder looks for a cell that never be black
 and then generates formulae only for checking the reachability from that cell.
 
 SAT符号化の詳細は `yajilin.tex` を参照してください（[PDF](https://raw.githubusercontent.com/wiki/ytakata69/yajilin-sat/yajilin.pdf)）．    
-Please see `yajilin.tex` and its [PDF](https://raw.githubusercontent.com/wiki/ytakata69/yajilin-sat/yajilin.pdf)
+Please see `yajilin-en.tex` and its [PDF](https://raw.githubusercontent.com/wiki/ytakata69/yajilin-sat/yajilin-en.pdf)
 for the details of the SAT encoding.
