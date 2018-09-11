@@ -69,6 +69,23 @@ It distinguishes the file formats by looking the first line of that file.)
 
 ## SAT符号化 - SAT Encoding
 
-`yajilin.tex` に説明を記述しました（[PDF](https://raw.githubusercontent.com/wiki/ytakata69/yajilin-sat/yajilin.pdf)）．    
+ごく普通の符号化法を使っています．    
+Plain encoding methods were adopted.
+
+- 黒マスの個数: n個の中からk個 ([k-out-of-n](https://cs.stackexchange.com/questions/13188/encoding-1-out-of-n-constraint-for-sat-solvers))    
+  (A ["k-out-of-n"](https://cs.stackexchange.com/questions/13188/encoding-1-out-of-n-constraint-for-sat-solvers) method is used for checking the number of black cells.)
+- 一つの輪っか: マス間の接続関係の推移閉包    
+  (Compute the transitive closure of the linking relation between two cells for checking that the lines form a single loop.)
+
+普通の大きさのヤジリン問題の場合，マスの個数nに対して符号化後のCNF式の長さがO(n<sup>2</sup>)なら符号化・求解とも十分速くできますが，O(n<sup>3</sup>)だとかなり重くなります（前者なら36&times;20の問題でも符号化・求解できますが，後者だと難しいです）．    
+推移閉包を求める式の長さをO(n<sup>2</sup>)に抑える簡単な工夫（符号化前に，黒マスにならないことが確実なマスを1個見つけておく）を行っています．    
+When the size of the resultant CNF formula is O(n<sup>2</sup>) for the number n of cells,
+you can encode and solve that problem sufficiently fast (and you can solve a problem with 36&times;20 cells in a practical time).
+However, when that size is O(n<sup>3</sup>), encoding and solving a Yajilin problem takes much time, even for a problem with 10&times;10 cells.    
+To make the size of the CNF formula for computing the transitive closure O(n<sup>2</sup>),
+before the encoding the SAT encoder looks for a cell that never be black
+and then generates formulae only for checking the reachability from that cell.
+
+SAT符号化の詳細は `yajilin.tex` を参照してください（[PDF](https://raw.githubusercontent.com/wiki/ytakata69/yajilin-sat/yajilin.pdf)）．    
 Please see `yajilin.tex` and its [PDF](https://raw.githubusercontent.com/wiki/ytakata69/yajilin-sat/yajilin.pdf)
 for the details of the SAT encoding.
