@@ -107,17 +107,39 @@ if inputfile != None:
 
 # 必ず線を引くべきマスを1個選ぶ（到達可能性を調べる起点）
 # Choose one cell ("pivot") that must contain a line.
-pivot = None
-for i, j in digit:
-    k, a = digit[(i, j)]
-    if k == 0:
-        x, y = i, j
-        while not ob((x, y), a):
-            x, y = a((x, y))
-            if (x, y) not in digit:
-                pivot = (x, y)
-                break
-    if pivot != None: break
+def distance_from_border(i, j, a):
+    """distance between (i, j) and the border in direction a."""
+    return {left: i - 1, up: j - 1, right: W - i, down: H - j}[a]
+
+def find_pivot():
+    """Find a pivot."""
+    for i, j in digit:
+        k, a = digit[(i, j)]
+        # a cell containing zero.
+        if k == 0:
+            x, y = i, j
+            while not ob((x, y), a):
+                x, y = a((x, y))
+                if (x, y) not in digit:
+                    return (x, y)
+        # Look for "stepping stones"
+        d = distance_from_border(i, j, a)
+        if d == k * 2 - 1:
+            x, y = i, j
+            count = 0
+            while not ob((x, y), a):
+                x, y = a((x, y))
+                count += 1
+                if count % 2 == 1 and (x, y) not in digit:
+                    # (x, y) must be black
+                    for a2 in X:
+                        if ob((x, y), a2): continue
+                        x2, y2 = a2((x, y))
+                        if (x2, y2) not in digit:
+                            return (x2, y2)
+    return None
+
+pivot = find_pivot()
 
 # SAT符号化 SAT encoding
 
