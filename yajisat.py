@@ -31,6 +31,7 @@ exit 1
 # Python code starts here
 
 from sys import argv, stderr
+import itertools
 
 # コマンドライン引数 Command-line arguments
 argv.pop(0)  # コマンド名自身を削除 Remove the command itself
@@ -250,9 +251,7 @@ if decode_mode:
 # 符号化モード Encoding mode
 
 def doubleloop(f1, t1, f2, t2):
-    for i in range(f1, t1):
-        for j in range(f2, t2):
-            yield (i, j)
+    return itertools.product(range(f1, t1), range(f2, t2))
 
 def add_reachability_clauses(i, j, clause):
     """マス(i,j)からの到達可能性に関する節をclauseに追加する．
