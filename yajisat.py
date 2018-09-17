@@ -138,6 +138,15 @@ def find_pivot():
                         x2, y2 = a2((x, y))
                         if (x2, y2) not in digit:
                             return (x2, y2)
+    # Look for the space next to the corner
+    for i, j in itertools.product((1, W), (1, H)):
+        # Is the corner empty?
+        if (i, j) not in digit:
+            for a in X:
+                if ob((i, j), a): continue
+                x, y = a((i, j))
+                if (x, y) not in digit:
+                    return (x, y)
     return None
 
 pivot = find_pivot()
